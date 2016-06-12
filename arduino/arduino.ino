@@ -1,33 +1,38 @@
-#include <I2Cdev.h>
 #include <Wire.h>
-#include <MPU6050.h>
 #include <SoftwareSerial.h>
 
-MPU6050 accelgyro;
+const int MPU_addr = 0x68;
+
 SoftwareSerial wifi(10, 11); // RX, TX
 
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
+int16_t tmp;
 int16_t lx = 0, ly = 0, lz = 0; // Last values
 int dx, dy, dz;                 // Differences
 
 long sum = 0;
-int count = 0;
+int count = 55 * 10;
 
 void setup() {
-  Serial.begin(38400);
-  wifi.begin(9600);
 
+  // MPU6050
   Wire.begin();
-  accelgyro.initialize();
-  if (!accelgyro.testConnection()) {
-    Serial.println("accel gyro failed");
-    while (1);
-  }
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission(true);
+
+  // Debug serial
+  Serial.begin(38400);
+  Serial.println("ok");
+
+  // Wifi serial
+  wifi.begin(9600);
 }
 
 void loop() {
-  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  read_mpu();
   /*Serial.print(gx);
   Serial.print("x");
   Serial.print(ay);
@@ -48,10 +53,10 @@ void loop() {
 
   sum += (dx + dy + dz);
   count++;
-  if (count == 60 * 10) {
+  if (count >= 60 * 10) {
 
     // Avoid big numbers
-    if (sum > 5000) sum = 5000;
+    if (sum > 2500) sum = 2500;
 
     Serial.println(sum);
     wifi.print(sum);
@@ -62,6 +67,20 @@ void loop() {
   }
 
   delay(100);
+}
+
+void read_mpu() {
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_addr, 14, true);
+  ax  = Wire.read() <<8 | Wire.read();
+  ay  = Wire.read() <<8 | Wire.read();
+  az  = Wire.read() <<8 | Wire.read();
+  tmp = Wire.read() <<8 | Wire.read();
+  gx  = Wire.read() <<8 | Wire.read();
+  gy  = Wire.read() <<8 | Wire.read();
+  gz  = Wire.read() <<8 | Wire.read();
 }
 
 int accuracy(int diff) {
