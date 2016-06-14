@@ -2,6 +2,7 @@
 #include <SoftwareSerial.h>
 
 const int MPU_addr = 0x68;
+const int interval = 5 * 60 * 10;
 
 SoftwareSerial wifi(10, 11); // RX, TX
 
@@ -12,7 +13,7 @@ int16_t lx = 0, ly = 0, lz = 0; // Last values
 int dx, dy, dz;                 // Differences
 
 long sum = 0;
-int count = 55 * 10;
+int count = interval - 5 * 10;
 
 void setup() {
 
@@ -35,9 +36,9 @@ void loop() {
   read_mpu();
   /*Serial.print(gx);
   Serial.print("x");
-  Serial.print(ay);
+  Serial.print(gy);
   Serial.print("x");
-  Serial.println(az);*/
+  Serial.println(gz);*/
 
   int dx = accuracy(abs(gx - lx));
   int dy = accuracy(abs(gy - ly));
@@ -53,7 +54,7 @@ void loop() {
 
   sum += (dx + dy + dz);
   count++;
-  if (count >= 60 * 10) {
+  if (count >= interval) {
 
     // Avoid big numbers
     if (sum > 2500) sum = 2500;
