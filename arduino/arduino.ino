@@ -17,19 +17,24 @@ int count = interval - 5 * 10;
 
 void setup() {
 
+  // Debug serial
+  Serial.begin(9600);
+  Serial.println("debug serial");
+  delay(1000);
+
+  // Wifi serial
+  wifi.begin(9600);
+  Serial.println("wifi serial");
+  delay(1000);
+
   // MPU6050
   Wire.begin();
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x6B);
   Wire.write(0);
   Wire.endTransmission(true);
-
-  // Debug serial
-  Serial.begin(38400);
-  Serial.println("ok");
-
-  // Wifi serial
-  wifi.begin(9600);
+  Serial.println("mpu6050");
+  delay(1000);
 }
 
 void loop() {
@@ -57,17 +62,66 @@ void loop() {
   if (count >= interval) {
 
     // Avoid big numbers
-    if (sum > 2500) sum = 2500;
+    if (sum > 500) sum = 500;
 
     Serial.println(sum);
-    wifi.print(sum);
-    wifi.print('.');
+
+    String payload = "{";
+    payload = payload + "\"device\":\"petr\",";
+    payload = payload + "\"value\":\"" + sum + "\"";
+    payload = payload + "}";
+
+    String msg = "POST /api/sleeps HTTP/1.1\r\n";
+    msg = msg + "Host:192.168.1.203\r\n";
+    msg = msg + "Cache-Control:no-cache\r\n";
+    msg = msg + "Content-Type:application/json\r\n";
+    msg = msg + "Content-Length:" + payload.length() + "\r\n";
+    msg = msg + "\r\n";
+    msg = msg + payload + "\r\n";
+    msg = msg + "\r\n";
+
+    /*Serial.println(msg);
+    Serial.println(payload);
+    Serial.print("payload size = ");
+    Serial.println(payload.length());
+    Serial.print("msg size = ");
+    Serial.println(msg.length());*/
+
+    String cmd = String();
+    cmd = cmd + "AT+CIPSEND=" + msg.length() + "\r\n";
+
+    send_at_cmd("AT+CIPSTART=\"TCP\",\"192.168.1.203\",3000\r\n");
+    send_at_cmd(cmd);
+    send_at_cmd(msg);
+    send_at_cmd("AT+CIPCLOSE\r\n");
 
     sum = 0;
     count = 0;
   }
 
+  // Print all from wifi module
+  char ch;
+  while (wifi.available()) {
+    delay(10);
+    ch = wifi.read();
+    Serial.write(ch);
+  }
+
+  // Debug AT commands
+  while (Serial.available()) {
+    wifi.write(Serial.read());
+  }
+
   delay(100);
+}
+
+void send_at_cmd(String cmd) {
+  wifi.print(cmd);
+  delay(30);
+  while (wifi.available()){
+    String res = wifi.readStringUntil('\n');
+    Serial.println(res);
+  }
 }
 
 void read_mpu() {
